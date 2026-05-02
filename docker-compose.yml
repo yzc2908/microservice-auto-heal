@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  auto-heal:
+    build: .
+    container_name: microservice-auto-heal
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN:-}
+      - SENTRY_ORG=${SENTRY_ORG:-}
+      - SENTRY_PROJECT=${SENTRY_PROJECT:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ${WORKSPACE_PATH:-/tmp/repo}:/workspace:ro
+      - ./data:/data
+    command:
+      - auto-heal
+      - poll
+      - --workspace
+      - /workspace
+      - --interval
+      - "${POLL_INTERVAL:-300}"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
