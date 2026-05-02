@@ -6,7 +6,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 name = "microservice-auto-heal"
 version = "1.0.0"
 description = "LLM-powered multi-agent system for automatic code defect self-healing and safe refactoring"
-authors = [{ name = "yzc030829", email = "yzc030829@gmail.com" }]
+authors = [{ name = "yzc2908", email = "yzc030829@gmail.com" }]
 license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.10"

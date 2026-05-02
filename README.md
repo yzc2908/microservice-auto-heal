@@ -67,7 +67,7 @@ This system is designed as a **high-density context processor** — each pipelin
 
 ```bash
 # Clone
-git clone https://github.com/yzc030829/microservice-auto-heal.git
+git clone https://github.com/yzc2908/microservice-auto-heal.git
 cd microservice-auto-heal
 
 # Install
