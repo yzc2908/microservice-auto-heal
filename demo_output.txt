@@ -1,0 +1,180 @@
+============================================================
+  Microservice Auto-Heal — Multi-Agent Pipeline Demo
+============================================================
+
+  GitHub: https://github.com/yzc2908/microservice-auto-heal
+  Model:  Claude Opus 4.7  |  Max Context: 200K tokens
+
+============================================================
+  PHASE 0 — Error Ingestion
+============================================================
+
+[Step 0] Receiving error from Sentry & CI/CD
+-----------------------------------------------------------
+    [Diagnostic] Incoming error event received...
+  Source: Sentry Issue #45821
+  Error:  NullReferenceException in PaymentService.validate()
+  CI Job:  unit-tests (GitHub Actions) — FAILED
+
+  ┌─ Sentry Error Event ──────────────────────────────────┐
+  │ Issue ID:  45821                                      │
+  │ Title:     NullReferenceException in validate()       │
+  │ Culprit:   services/payment.py in PaymentService      │
+  │ Level:     ERROR                                      │
+  │ Timestamp: 2026-05-03T00:25:00Z                       │
+  │ Stacktrace:                                           │
+  │   app/handler.py:108 in handle_request                │
+  │   services/payment.py:52 in validate                  │
+  │   lib/validators.py:31 in check_amount                │
+  └───────────────────────────────────────────────────────┘
+
+============================================================
+  PHASE 1 — Diagnostic Agent (Root Cause Analysis)
+============================================================
+
+[Step 1] Running AST analysis on repository...
+-----------------------------------------------------------
+    [Diagnostic] Parsing 142 Python files, building
+    cross-file call graph...
+  ✓ AST parsed: 142 files, 1,847 functions, 203 classes
+  ✓ Call chain traced: handle_request → validate → check_amount
+
+[Step 2] Constructing LLM context prompt (38,000 tokens)...
+-----------------------------------------------------------
+    [Diagnostic] Sending to Claude Opus 4.7 for deep
+    chain-of-thought reasoning...
+
+[Step 3] Diagnostic Report generated:
+-----------------------------------------------------------
+╔══ DIAGNOSTIC REPORT ════════════════════════════════════╗
+║  Root Cause:                                           ║
+║  In lib/validators.py:31, check_amount() does not      ║
+║  handle None input. When PaymentService.validate()     ║
+║  receives a request with missing 'amount' field, it    ║
+║  passes None to check_amount() → float(None) →         ║
+║  TypeError.                                            ║
+║                                                        ║
+║  Call Chain:                                           ║
+║  handler.py:108 → payment.py:52 → validators.py:31     ║
+║                                                        ║
+║  Affected Files:                                       ║
+║  - lib/validators.py (root cause)                      ║
+║  - services/payment.py (missing input guard)           ║
+║                                                        ║
+║  Confidence: HIGH                                      ║
+║  Impact: Payment flow completely blocked for null-     ║
+║  amount requests. Affects ~15% of API traffic.         ║
+║                                                        ║
+║  Token Usage: 38,420 input + 1,280 output = 39,700     ║
+╚════════════════════════════════════════════════════════╝
+
+============================================================
+  PHASE 2 — Coding Agent (Fix Generation)
+============================================================
+
+[Step 4] Loading source files into context...
+-----------------------------------------------------------
+    [Coding] Reading lib/validators.py and
+    services/payment.py...
+  ✓ Loaded 2 source files (892 lines total) into context
+  ✓ Analysed existing test patterns in tests/
+
+[Step 5] Generating fix patch & unit tests...
+-----------------------------------------------------------
+    [Coding] Generating minimal surgical fix...
+
+╔══ CODING REPORT ════════════════════════════════════════╗
+║                                                        ║
+║  Fix Patch (unified diff):                             ║
+║  ──────────────────────────────────────────────────    ║
+║  --- a/lib/validators.py                               ║
+║  +++ b/lib/validators.py                               ║
+║  @@ -28,6 +28,9 @@                                     ║
+║   def check_amount(value):                             ║
+║  +    if value is None:                                ║
+║  +        raise ValueError("amount must not be None")  ║
+║       return float(value)                              ║
+║  ──────────────────────────────────────────────────    ║
+║                                                        ║
+║  New Unit Tests:                                       ║
+║  ──────────────────────────────────────────────────    ║
+║  def test_check_amount_with_none_input():              ║
+║      with pytest.raises(ValueError, match="None"):     ║
+║          check_amount(None)                            ║
+║                                                        ║
+║  def test_check_amount_with_valid_input():             ║
+║      assert check_amount("100.50") == 100.50           ║
+║  ──────────────────────────────────────────────────    ║
+║                                                        ║
+║  Modified files:  lib/validators.py                    ║
+║  New test files:  tests/test_validators_fix.py         ║
+║                                                        ║
+║  Token Usage: 12,600 input + 1,840 output = 14,440     ║
+╚════════════════════════════════════════════════════════╝
+
+============================================================
+  PHASE 3 — Review Agent (Security & Quality Gate)
+============================================================
+
+[Step 6] Running architectural review...
+-----------------------------------------------------------
+    [Review] Auditing fix against 5 criteria:
+
+╔══ REVIEW REPORT ════════════════════════════════════════╗
+║                                                        ║
+║  Verdict:  APPROVE                                     ║
+║                                                        ║
+║  [✓] Security:      No injection vectors, no secrets   ║
+║  [✓] Correctness:    Fix addresses root cause          ║
+║  [✓] Code Smell:     Clean, idiomatic, conventions     ║
+║  [✓] Test Adequacy:  2 tests: null & valid paths       ║
+║  [✓] Backward Compat: Existing API unchanged           ║
+║                                                        ║
+║  Review Comment:                                       ║
+║  "The null guard is correctly placed at the point of   ║
+║   data ingress (check_amount). The ValueError provides ║
+║   clear diagnostics. Tests cover both the new edge     ║
+║   case and the existing happy path. Approved."         ║
+║                                                        ║
+║  Token Usage: 8,200 input + 920 output = 9,120         ║
+╚════════════════════════════════════════════════════════╝
+
+============================================================
+  PHASE 4 — Auto Merge Request
+============================================================
+
+[Step 7] Applying fix and creating Merge Request...
+-----------------------------------------------------------
+╔══ GIT OPERATIONS ══════════════════════════════════════╗
+║                                                        ║
+║  ✓ Branch created:   auto-heal/fix-a3f2b881            ║
+║  ✓ Patch applied:    lib/validators.py                 ║
+║  ✓ Test file added:  tests/test_validators_fix.py      ║
+║  ✓ Commit:           2a7b16e - fix(auto-heal):         ║
+║                      add null guard in check_amount()  ║
+║  ✓ Pushed to:       origin/auto-heal/fix-a3f2b881      ║
+║  ✓ MR Created:      github.com/yzc2908/.../pr/12       ║
+║                                                        ║
+╚════════════════════════════════════════════════════════╝
+
+============================================================
+  PIPELINE SUMMARY
+============================================================
+
+╔════════════════════════════════════════════════════════╗
+║  Pipeline Result:  SUCCESS                            ║
+║  Total Duration:   12.4 seconds                       ║
+║  Agents Executed:  3 (Diagnostic → Coding → Review)  ║
+║  LLM Calls:        3                                  ║
+║  Retry Rounds:     0                                  ║
+║  Total Tokens:     63,260 input + 4,040 output        ║
+║                    = 67,300 tokens consumed            ║
+║                                                       ║
+║  Fix Applied:       lib/validators.py (+3 lines)      ║
+║  New Tests:         2 unit tests                      ║
+║  MTTR:              ~12 sec (vs. ~4 hours manual)     ║
+║  MTTR Reduction:    99.9%                             ║
+╚════════════════════════════════════════════════════════╝
+
+  Project: https://github.com/yzc2908/microservice-auto-heal
+  Model:   Claude Opus 4.7 via Anthropic API
